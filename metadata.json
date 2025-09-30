@@ -1,0 +1,5 @@
+{
+  "name": "Meu Contador de Calorias",
+  "description": "Um aplicativo web para rastrear a ingestão diária de calorias, macronutrientes, exercícios e consumo de água. Permite aos usuários gerenciar alimentos e exercícios personalizados e visualizar o progresso com gráficos semanais.",
+  "requestFramePermissions": []
+}
