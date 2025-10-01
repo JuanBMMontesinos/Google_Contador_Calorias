@@ -1,12 +1,14 @@
+
 import React from 'react';
 import { DailyLog, Food, Exercise, LoggedFood, LoggedExercise, MealType } from '../types';
-import { AppleIcon, FireIcon, DumbbellIcon } from './Icons';
+import { AppleIcon, FireIcon, DumbbellIcon, TargetIcon } from './Icons';
 import { MEAL_TYPES_ORDERED } from '../constants';
 
 interface DashboardProps {
   dailyLog: DailyLog | undefined;
   allFoods: Food[];
   allExercises: Exercise[];
+  calorieGoal: number | null;
 }
 
 const MacroCircle: React.FC<{ label: string; value: number; color: string; caloriesPerGram: number; }> = ({ label, value, color, caloriesPerGram }) => {
@@ -23,8 +25,7 @@ const MacroCircle: React.FC<{ label: string; value: number; color: string; calor
 };
 
 
-const Dashboard: React.FC<DashboardProps> = ({ dailyLog, allFoods, allExercises }) => {
-  // Fix: Explicitly type the Maps to ensure correct type inference.
+const Dashboard: React.FC<DashboardProps> = ({ dailyLog, allFoods, allExercises, calorieGoal }) => {
   const allFoodsMap = new Map<string, Food>(allFoods.map(f => [f.id, f]));
   const allExercisesMap = new Map<string, Exercise>(allExercises.map(e => [e.id, e]));
 
@@ -60,11 +61,23 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyLog, allFoods, allExercises 
 
   const totals = calculateTotals();
   const netCalories = totals.caloriesIn - totals.caloriesOut;
+  const remainingCalories = calorieGoal ? calorieGoal - totals.caloriesIn + totals.caloriesOut : null;
+
 
   return (
     <div className="bg-white dark:bg-neutral p-6 rounded-2xl shadow-lg">
       <h2 className="text-2xl font-bold text-neutral dark:text-base-content mb-4">Resumo do Dia</h2>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
+      <div className={`grid grid-cols-2 ${calorieGoal ? 'md:grid-cols-4' : 'md:grid-cols-3'} gap-4 text-center`}>
+        {calorieGoal && (
+             <div className="bg-blue-500/10 p-4 rounded-lg flex flex-col items-center justify-center">
+                <div className="flex items-center text-blue-500">
+                    <TargetIcon />
+                    <span className="ml-2 font-semibold">Meta</span>
+                </div>
+                <p className="text-3xl font-bold text-neutral dark:text-base-content mt-2">{calorieGoal.toFixed(0)}</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">kcal</p>
+            </div>
+        )}
         <div className="bg-primary/10 p-4 rounded-lg flex flex-col items-center justify-center">
           <div className="flex items-center text-primary">
             <AppleIcon />
@@ -84,9 +97,11 @@ const Dashboard: React.FC<DashboardProps> = ({ dailyLog, allFoods, allExercises 
         <div className="bg-secondary/10 p-4 rounded-lg flex flex-col items-center justify-center">
           <div className="flex items-center text-secondary">
             <FireIcon />
-            <span className="ml-2 font-semibold">Balanço</span>
+            <span className="ml-2 font-semibold">{calorieGoal ? 'Restantes' : 'Balanço'}</span>
           </div>
-          <p className="text-3xl font-bold text-neutral dark:text-base-content mt-2">{netCalories.toFixed(0)}</p>
+          <p className="text-3xl font-bold text-neutral dark:text-base-content mt-2">
+            {(remainingCalories ?? netCalories).toFixed(0)}
+          </p>
           <p className="text-sm text-gray-500 dark:text-gray-400">kcal</p>
         </div>
       </div>

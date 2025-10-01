@@ -1,11 +1,12 @@
+
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Food, Exercise, MealType, DailyLog, LoggedFood, LoggedExercise } from './types';
+import { Food, Exercise, MealType, DailyLog, LoggedFood, LoggedExercise, UserProfile, Gender, ActivityLevel, Goal } from './types';
 import { PRE_CADASTRADO_FOODS, PRE_CADASTRADO_EXERCISES, MEAL_TYPES_ORDERED } from './constants';
 import Dashboard from './components/Dashboard';
 import WaterTracker from './components/WaterTracker';
 import WeeklyCharts from './components/WeeklyCharts';
 import Modal from './components/Modal';
-import { PlusIcon, TrashIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon, DumbbellIcon, SettingsIcon, SunIcon, MoonIcon, Big2FitLogo } from './components/Icons';
+import { PlusIcon, TrashIcon, PencilIcon, ChevronLeftIcon, ChevronRightIcon, DumbbellIcon, SettingsIcon, SunIcon, MoonIcon, InfoIcon, Big2FitLogo } from './components/Icons';
 
 // --- Type Definitions ---
 interface User {
@@ -263,7 +264,8 @@ const App: React.FC = () => {
     const [view, setView] = useState<View>('login');
     const [resetToken, setResetToken] = useState<string | null>(null);
     const [theme, setTheme] = useState<Theme>('light');
-
+    
+    const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
     const [customFoods, setCustomFoods] = useState<Food[]>([]);
     const [customExercises, setCustomExercises] = useState<Exercise[]>([]);
     const [dailyLogs, setDailyLogs] = useState<DailyLog[]>([]);
@@ -282,6 +284,7 @@ const App: React.FC = () => {
     const [isSettingsMenuOpen, setSettingsMenuOpen] = useState(false);
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
     const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+    const [isProfileModalOpen, setProfileModalOpen] = useState(false);
 
 
     // --- Theme Logic ---
@@ -307,7 +310,6 @@ const App: React.FC = () => {
 
     // --- Authentication and Data Loading Logic ---
     useEffect(() => {
-        // Check for password reset token in URL
         const params = new URLSearchParams(window.location.search);
         const token = params.get('resetToken');
         if (token) {
@@ -326,7 +328,6 @@ const App: React.FC = () => {
                 window.history.pushState({}, '', window.location.pathname);
             }
         } else {
-            // Regular user login check
             const loggedInUserJSON = localStorage.getItem('calorie-tracker-user');
             if (loggedInUserJSON) {
                 try {
@@ -345,15 +346,17 @@ const App: React.FC = () => {
             const savedLogs = localStorage.getItem(`calorie-tracker-logs-${currentUser.email}`);
             const savedFoods = localStorage.getItem(`calorie-tracker-foods-${currentUser.email}`);
             const savedExercises = localStorage.getItem(`calorie-tracker-exercises-${currentUser.email}`);
+            const savedProfile = localStorage.getItem(`calorie-tracker-profile-${currentUser.email}`);
             
             if (savedLogs) setDailyLogs(JSON.parse(savedLogs));
             if (savedFoods) setCustomFoods(JSON.parse(savedFoods));
             if (savedExercises) setCustomExercises(JSON.parse(savedExercises));
+            if (savedProfile) setUserProfile(JSON.parse(savedProfile));
         } else {
-            // Clear data if user logs out
             setDailyLogs([]);
             setCustomFoods([]);
             setCustomExercises([]);
+            setUserProfile(null);
         }
     }, [currentUser]);
 
@@ -367,21 +370,24 @@ const App: React.FC = () => {
     useEffect(() => {
         if(currentUser) localStorage.setItem(`calorie-tracker-exercises-${currentUser.email}`, JSON.stringify(customExercises));
     }, [customExercises, currentUser]);
+    useEffect(() => {
+        if(currentUser && userProfile) localStorage.setItem(`calorie-tracker-profile-${currentUser.email}`, JSON.stringify(userProfile));
+    }, [userProfile, currentUser]);
     
     const handleLogin = (email: string, password: string, name?: string) => {
         const usersDbStr = localStorage.getItem('calorie-tracker-users') || '{}';
         const usersDb = JSON.parse(usersDbStr);
         let userToLogin: User;
 
-        if (name) { // Sign Up
+        if (name) {
             if (usersDb[email]) {
                 alert('Este e-mail já está cadastrado.');
                 return;
             }
             userToLogin = { email, name };
-            usersDb[email] = { name, password }; // Storing password, in real-app hash it
+            usersDb[email] = { name, password };
             localStorage.setItem('calorie-tracker-users', JSON.stringify(usersDb));
-        } else { // Sign In
+        } else { 
             const existingUser = usersDb[email];
             if (!existingUser || existingUser.password !== password) {
                 alert('E-mail ou senha incorretos.');
@@ -481,6 +487,11 @@ const App: React.FC = () => {
             alert('A senha atual está incorreta.');
         }
     };
+
+    const handleSaveProfile = (profile: UserProfile) => {
+        setUserProfile(profile);
+        setProfileModalOpen(false);
+    };
     
     const selectedDateString = getFormattedDate(selectedDate);
     const currentDailyLog = useMemo(() => {
@@ -494,6 +505,40 @@ const App: React.FC = () => {
     const allFoods = useMemo(() => [...PRE_CADASTRADO_FOODS, ...customFoods], [customFoods]);
     const allExercises = useMemo(() => [...PRE_CADASTRADO_EXERCISES, ...customExercises], [customExercises]);
     
+    const calorieGoal = useMemo(() => {
+        if (!userProfile) return null;
+        const { weight, height, age, gender, activityLevel, goal } = userProfile;
+        if (!weight || !height || !age) return null;
+
+        let bmr: number;
+        if (gender === Gender.Male) {
+            bmr = 88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age);
+        } else { // Female
+            bmr = 447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age);
+        }
+
+        const activityMultipliers: Record<ActivityLevel, number> = {
+            [ActivityLevel.Low]: 1.2,
+            [ActivityLevel.Moderate]: 1.375,
+            [ActivityLevel.High]: 1.55,
+            [ActivityLevel.VeryHigh]: 1.725,
+            [ActivityLevel.Hyperactive]: 1.9
+        };
+        const tdee = bmr * activityMultipliers[activityLevel];
+
+        const goalMultipliers: Record<Goal, number> = {
+            [Goal.LoseWeight]: 0.8,
+            [Goal.LoseWeightSlowly]: 0.9,
+            [Goal.Maintain]: 1.0,
+            [Goal.GainWeightSlowly]: 1.1,
+            [Goal.GainWeight]: 1.2
+        };
+        
+        return tdee * goalMultipliers[goal];
+
+    }, [userProfile]);
+
+
     const updateDailyLog = useCallback((log: DailyLog) => {
         setDailyLogs(prevLogs => {
             const index = prevLogs.findIndex(l => l.date === log.date);
@@ -606,7 +651,6 @@ const App: React.FC = () => {
     }
 
     if (!currentUser) {
-        // Fallback for initial loading state before useEffect kicks in
         return <div className="min-h-screen bg-base-100 dark:bg-gray-900 flex justify-center items-center"><p>Carregando...</p></div>;
     }
 
@@ -623,6 +667,12 @@ const App: React.FC = () => {
                     </button>
                     {isSettingsMenuOpen && (
                         <div className="absolute top-full right-0 mt-2 w-48 bg-white dark:bg-neutral rounded-lg shadow-xl py-1 z-10">
+                             <button 
+                                onClick={() => { setProfileModalOpen(true); setSettingsMenuOpen(false); }}
+                                className="w-full text-left px-4 py-2 text-sm text-neutral dark:text-base-content hover:bg-base-100 dark:hover:bg-gray-700"
+                            >
+                                Perfil
+                            </button>
                             <button 
                                 onClick={() => { setSettingsModalOpen(true); setSettingsMenuOpen(false); }}
                                 className="w-full text-left px-4 py-2 text-sm text-neutral dark:text-base-content hover:bg-base-100 dark:hover:bg-gray-700"
@@ -635,6 +685,7 @@ const App: React.FC = () => {
                             >
                                 Trocar Senha
                             </button>
+                            <div className="border-t border-base-300 dark:border-gray-600 my-1"></div>
                             <button 
                                 onClick={handleLogout} 
                                 className="w-full text-left px-4 py-2 text-sm text-neutral dark:text-base-content hover:bg-base-100 dark:hover:bg-gray-700"
@@ -655,7 +706,7 @@ const App: React.FC = () => {
                     <button onClick={() => handleDateChange(1)} className="p-2 rounded-full hover:bg-base-200 dark:hover:bg-gray-700"><ChevronRightIcon/></button>
                 </div>
 
-                <Dashboard dailyLog={currentDailyLog} allFoods={allFoods} allExercises={allExercises} />
+                <Dashboard dailyLog={currentDailyLog} allFoods={allFoods} allExercises={allExercises} calorieGoal={calorieGoal} />
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
                     <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -776,10 +827,21 @@ const App: React.FC = () => {
                 />
             )}
 
+            {isProfileModalOpen && (
+                <ProfileModal
+                    isOpen={isProfileModalOpen}
+                    onClose={() => setProfileModalOpen(false)}
+                    onSave={handleSaveProfile}
+                    currentProfile={userProfile}
+                />
+            )}
+
             <style>{`
                 .btn-primary { @apply bg-primary text-primary-content font-bold py-2 px-4 rounded-lg hover:bg-primary-focus transition-colors; }
                 .btn-primary-outline { @apply bg-transparent border border-primary text-primary font-bold py-2 px-4 rounded-lg hover:bg-primary hover:text-primary-content transition-colors dark:text-primary dark:hover:text-primary-content; }
                 .input-field { @apply mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-800 border border-base-300 dark:border-gray-600 text-neutral dark:text-base-content rounded-md shadow-sm placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm; }
+                .tooltip-container { @apply relative flex items-center; }
+                .tooltip-text { @apply invisible group-hover:visible absolute left-full ml-2 w-48 p-2 bg-gray-700 text-white text-xs rounded-md shadow-lg z-20 transition-opacity; }
             `}</style>
         </div>
     );
@@ -1388,5 +1450,108 @@ const ChangePasswordModal: React.FC<{
     );
 };
 
+const ACTIVITY_LEVEL_INFO: Record<ActivityLevel, string> = {
+    [ActivityLevel.Low]: "Pouco exercício ou nenhum",
+    [ActivityLevel.Moderate]: "Pouco exercício, 1 a 3 vezes por semana",
+    [ActivityLevel.High]: "Exercício moderado, 3 a 5 vezes por semana",
+    [ActivityLevel.VeryHigh]: "Exercício intenso, 5 a 7 vezes por semana",
+    [ActivityLevel.Hyperactive]: "Exercício muito intenso, atividade física 2 horas ou mais",
+};
+
+const GOAL_INFO: Record<Goal, string> = {
+    [Goal.LoseWeight]: "Diminuir os requisitos calóricos em 20%",
+    [Goal.LoseWeightSlowly]: "Diminuir os requisitos calóricos em 10%",
+    [Goal.Maintain]: "Não alterar os requisitos calóricos",
+    [Goal.GainWeightSlowly]: "Aumentar os requisitos calóricos em 10%",
+    [Goal.GainWeight]: "Aumentar os requisitos calóricos em 20%",
+};
+
+const ProfileModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (profile: UserProfile) => void;
+    currentProfile: UserProfile | null;
+}> = ({ isOpen, onClose, onSave, currentProfile }) => {
+    const defaultProfile: UserProfile = {
+        height: 0,
+        weight: 0,
+        gender: Gender.Female,
+        age: 0,
+        activityLevel: ActivityLevel.Low,
+        goal: Goal.Maintain,
+    };
+    const [profile, setProfile] = useState<UserProfile>(currentProfile || defaultProfile);
+
+    useEffect(() => {
+        if (isOpen) {
+            setProfile(currentProfile || defaultProfile);
+        }
+    }, [isOpen, currentProfile]);
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+        const { name, value } = e.target;
+        setProfile(prev => ({
+            ...prev,
+            [name]: e.target.type === 'number' && value ? parseFloat(value) : value
+        }));
+    };
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(profile);
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Meu Perfil">
+            <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                    <div>
+                        <label htmlFor="height" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Altura (cm)</label>
+                        <input id="height" name="height" type="number" value={profile.height || ''} onChange={handleChange} className="input-field w-full" required min="1" />
+                    </div>
+                    <div>
+                        <label htmlFor="weight" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Peso (kg)</label>
+                        <input id="weight" name="weight" type="number" value={profile.weight || ''} onChange={handleChange} className="input-field w-full" required min="1" />
+                    </div>
+                     <div>
+                        <label htmlFor="age" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Idade</label>
+                        <input id="age" name="age" type="number" value={profile.age || ''} onChange={handleChange} className="input-field w-full" required min="1" />
+                    </div>
+                    <div>
+                        <label htmlFor="gender" className="block text-sm font-bold text-gray-700 dark:text-gray-300">Sexo</label>
+                        <select id="gender" name="gender" value={profile.gender} onChange={handleChange} className="input-field w-full">
+                            {Object.values(Gender).map(g => <option key={g} value={g}>{g}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label htmlFor="activityLevel" className="block text-sm font-bold text-gray-700 dark:text-gray-300 group tooltip-container">
+                        Atividade
+                        <InfoIcon />
+                        <span className="tooltip-text">{ACTIVITY_LEVEL_INFO[profile.activityLevel]}</span>
+                    </label>
+                    <select id="activityLevel" name="activityLevel" value={profile.activityLevel} onChange={handleChange} className="input-field w-full">
+                        {Object.values(ActivityLevel).map(level => <option key={level} value={level}>{level}</option>)}
+                    </select>
+                </div>
+
+                <div>
+                    <label htmlFor="goal" className="block text-sm font-bold text-gray-700 dark:text-gray-300 group tooltip-container">
+                        Objetivo
+                        <InfoIcon />
+                        <span className="tooltip-text">{GOAL_INFO[profile.goal]}</span>
+                    </label>
+                    <select id="goal" name="goal" value={profile.goal} onChange={handleChange} className="input-field w-full">
+                        {Object.values(Goal).map(g => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                </div>
+                 <div className="pt-2">
+                    <button type="submit" className="btn-primary w-full">Salvar Perfil</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
 
 export default App;
