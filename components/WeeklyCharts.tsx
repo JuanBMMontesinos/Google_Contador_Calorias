@@ -16,8 +16,9 @@ const WeeklyCharts: React.FC<WeeklyChartsProps> = ({ logs, allFoods, allExercise
   const [view, setView] = useState<'calories' | 'water'>('calories');
   const [range, setRange] = useState<'weekly' | 'monthly'>('weekly');
 
-  const allFoodsMap = new Map(allFoods.map(f => [f.id, f]));
-  const allExercisesMap = new Map(allExercises.map(e => [e.id, e]));
+  // Fix: Explicitly type the Maps to ensure correct type inference.
+  const allFoodsMap = new Map<string, Food>(allFoods.map(f => [f.id, f]));
+  const allExercisesMap = new Map<string, Exercise>(allExercises.map(e => [e.id, e]));
 
   const chartData = useMemo(() => {
     const days = range === 'weekly' ? 7 : 30;

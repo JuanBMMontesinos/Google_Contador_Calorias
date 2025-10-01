@@ -277,6 +277,7 @@ const App: React.FC = () => {
     const [isManageExerciseModalOpen, setManageExerciseModalOpen] = useState(false);
     
     const [editingFoodLog, setEditingFoodLog] = useState<{ mealType: MealType; index: number } | null>(null);
+    const [editingExerciseLog, setEditingExerciseLog] = useState<{ index: number } | null>(null);
 
     const [isSettingsMenuOpen, setSettingsMenuOpen] = useState(false);
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
@@ -521,6 +522,14 @@ const App: React.FC = () => {
         setExerciseModalOpen(false);
     };
 
+    const handleUpdateExerciseInLog = (index: number, exerciseId: string, minutes: number) => {
+        if (minutes <= 0) return;
+        const newLog = JSON.parse(JSON.stringify(currentDailyLog));
+        newLog.exercises[index] = { exerciseId, minutes };
+        updateDailyLog(newLog);
+        setEditingExerciseLog(null);
+    };
+
     const handleRemoveExercise = (index: number) => {
         const newLog = JSON.parse(JSON.stringify(currentDailyLog));
         newLog.exercises.splice(index, 1);
@@ -649,6 +658,7 @@ const App: React.FC = () => {
                             allExercises={allExercises}
                             onAddClick={() => setExerciseModalOpen(true)}
                             onRemoveClick={handleRemoveExercise}
+                            onEditClick={(index) => setEditingExerciseLog({ index })}
                         />
                         <WaterTracker waterIntake={currentDailyLog.water} onWaterChange={handleWaterChange} />
                     </div>
@@ -696,6 +706,16 @@ const App: React.FC = () => {
                     itemLabel="Exercício"
                     amountLabel="Minutos"
                     itemDisplayFn={(item: Exercise) => `${item.name} (~${item.caloriesBurned} kcal/h)`}
+                />
+            )}
+
+            {editingExerciseLog && (
+                <EditExerciseLogModal
+                    isOpen={!!editingExerciseLog}
+                    onClose={() => setEditingExerciseLog(null)}
+                    allExercises={allExercises}
+                    logToEdit={currentDailyLog.exercises[editingExerciseLog.index]}
+                    onSave={(exerciseId, minutes) => handleUpdateExerciseInLog(editingExerciseLog.index, exerciseId, minutes)}
                 />
             )}
             
@@ -817,8 +837,9 @@ const ExerciseLog: React.FC<{
     loggedExercises: LoggedExercise[],
     allExercises: Exercise[],
     onAddClick: () => void,
-    onRemoveClick: (index: number) => void
-}> = ({ loggedExercises, allExercises, onAddClick, onRemoveClick }) => {
+    onRemoveClick: (index: number) => void,
+    onEditClick: (index: number) => void
+}> = ({ loggedExercises, allExercises, onAddClick, onRemoveClick, onEditClick }) => {
     const allExercisesMap = useMemo(() => new Map(allExercises.map(e => [e.id, e])), [allExercises]);
     const totalCaloriesBurned = useMemo(() => {
         return loggedExercises.reduce((total, le) => {
@@ -842,7 +863,10 @@ const ExerciseLog: React.FC<{
                                 <p className="font-semibold text-neutral dark:text-base-content">{exercise?.name}</p>
                                 <p className="text-sm text-gray-500 dark:text-gray-400">{le.minutes} min &bull; {(exercise ? (exercise.caloriesBurned / 60) * le.minutes : 0).toFixed(0)} kcal</p>
                             </div>
-                            <button onClick={() => onRemoveClick(index)} className="text-red-500 hover:text-red-700 p-1"><TrashIcon/></button>
+                            <div className="flex items-center space-x-1">
+                                <button onClick={() => onEditClick(index)} className="text-blue-500 hover:text-blue-700 p-1"><PencilIcon/></button>
+                                <button onClick={() => onRemoveClick(index)} className="text-red-500 hover:text-red-700 p-1"><TrashIcon/></button>
+                            </div>
                         </div>
                     );
                 })}
@@ -1057,6 +1081,59 @@ const EditFoodLogModal: React.FC<{
                             className="input-field w-full"
                             value={grams}
                             onChange={(e) => setGrams(Number(e.target.value))}
+                            min="1"
+                        />
+                    </div>
+                    <button type="submit" className="btn-primary h-10">Salvar Alterações</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const EditExerciseLogModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    allExercises: Exercise[];
+    logToEdit: LoggedExercise;
+    onSave: (exerciseId: string, minutes: number) => void;
+}> = ({ isOpen, onClose, allExercises, logToEdit, onSave }) => {
+    const [selectedExerciseId, setSelectedExerciseId] = useState(logToEdit.exerciseId);
+    const [minutes, setMinutes] = useState(logToEdit.minutes);
+
+    useEffect(() => {
+        setSelectedExerciseId(logToEdit.exerciseId);
+        setMinutes(logToEdit.minutes);
+    }, [logToEdit]);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        onSave(selectedExerciseId, Number(minutes));
+    };
+
+    return (
+        <Modal isOpen={isOpen} onClose={onClose} title="Editar Exercício">
+            <form onSubmit={handleSubmit}>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Exercício</label>
+                <select
+                    className="input-field w-full mb-4"
+                    value={selectedExerciseId}
+                    onChange={(e) => setSelectedExerciseId(e.target.value)}
+                >
+                    {allExercises.map(exercise => (
+                        <option key={exercise.id} value={exercise.id}>
+                            {`${exercise.name} (~${exercise.caloriesBurned} kcal/h)`}
+                        </option>
+                    ))}
+                </select>
+                <div className="flex items-end gap-4">
+                    <div className="flex-grow">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Minutos</label>
+                        <input
+                            type="number"
+                            className="input-field w-full"
+                            value={minutes}
+                            onChange={(e) => setMinutes(Number(e.target.value))}
                             min="1"
                         />
                     </div>

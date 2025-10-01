@@ -24,8 +24,9 @@ const MacroCircle: React.FC<{ label: string; value: number; color: string; calor
 
 
 const Dashboard: React.FC<DashboardProps> = ({ dailyLog, allFoods, allExercises }) => {
-  const allFoodsMap = new Map(allFoods.map(f => [f.id, f]));
-  const allExercisesMap = new Map(allExercises.map(e => [e.id, e]));
+  // Fix: Explicitly type the Maps to ensure correct type inference.
+  const allFoodsMap = new Map<string, Food>(allFoods.map(f => [f.id, f]));
+  const allExercisesMap = new Map<string, Exercise>(allExercises.map(e => [e.id, e]));
 
   const calculateTotals = () => {
     if (!dailyLog) {
