@@ -1,27 +1,28 @@
-
 <!DOCTYPE html>
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Meu Contador de Calorias</title>
+    <title>Big2Fit</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
+        darkMode: 'class',
         theme: {
           extend: {
             colors: {
-              primary: '#10B981', // Emerald 500
-              'primary-focus': '#059669', // Emerald 600
+              primary: '#4d8294',
+              'primary-focus': '#406e7e',
               'primary-content': '#ffffff',
-              secondary: '#F59E0B', // Amber 500
-              'secondary-focus': '#D97706', // Amber 600
-              accent: '#3B82F6', // Blue 500
-              neutral: '#374151', // Gray 700
-              'base-100': '#F9FAFB', // Gray 50
-              'base-200': '#F3F4F6', // Gray 100
-              'base-300': '#E5E7EB', // Gray 200
+              secondary: '#9ca3af', // Gray 400
+              'secondary-focus': '#6b7280', // Gray 500
+              accent: '#6b7280', // Gray 500
+              neutral: '#000000', // Black for header
+              'base-100': '#f1f5f9', // Slate 100 (Page background)
+              'base-200': '#e2e8f0', // Slate 200
+              'base-300': '#cbd5e1', // Slate 300 (Borders)
+              'base-content': '#1f2937', // Slate 800 (Default text color)
               info: '#0EA5E9', // Sky 500
               success: '#22C55E', // Green 500
               warning: '#FBBF24', // Amber 400
@@ -42,7 +43,7 @@
 }
 </script>
 </head>
-  <body class="bg-base-100">
+  <body class="bg-base-100 dark:bg-gray-900">
     <div id="root"></div>
     <script type="module" src="/index.tsx"></script>
   </body>
