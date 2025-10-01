@@ -281,6 +281,7 @@ const App: React.FC = () => {
 
     const [isSettingsMenuOpen, setSettingsMenuOpen] = useState(false);
     const [isSettingsModalOpen, setSettingsModalOpen] = useState(false);
+    const [isChangePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
 
 
     // --- Theme Logic ---
@@ -446,7 +447,7 @@ const App: React.FC = () => {
         }
     };
 
-    const handleUpdateUserData = (newName: string, newPassword?: string) => {
+    const handleUpdateUserData = (newName: string) => {
         if (!currentUser) return;
     
         const usersDbStr = localStorage.getItem('calorie-tracker-users') || '{}';
@@ -454,9 +455,6 @@ const App: React.FC = () => {
     
         if (usersDb[currentUser.email]) {
             usersDb[currentUser.email].name = newName;
-            if (newPassword) {
-                usersDb[currentUser.email].password = newPassword; 
-            }
         }
     
         localStorage.setItem('calorie-tracker-users', JSON.stringify(usersDb));
@@ -466,6 +464,22 @@ const App: React.FC = () => {
         localStorage.setItem('calorie-tracker-user', JSON.stringify(updatedUser));
     
         setSettingsModalOpen(false);
+    };
+
+    const handleChangePassword = (currentPassword: string, newPassword: string) => {
+        if (!currentUser) return;
+        const usersDbStr = localStorage.getItem('calorie-tracker-users') || '{}';
+        const usersDb = JSON.parse(usersDbStr);
+        const userRecord = usersDb[currentUser.email];
+
+        if (userRecord && userRecord.password === currentPassword) {
+            userRecord.password = newPassword;
+            localStorage.setItem('calorie-tracker-users', JSON.stringify(usersDb));
+            alert('Senha alterada com sucesso!');
+            setChangePasswordModalOpen(false);
+        } else {
+            alert('A senha atual está incorreta.');
+        }
     };
     
     const selectedDateString = getFormattedDate(selectedDate);
@@ -616,6 +630,12 @@ const App: React.FC = () => {
                                 Meus Dados
                             </button>
                             <button 
+                                onClick={() => { setChangePasswordModalOpen(true); setSettingsMenuOpen(false); }}
+                                className="w-full text-left px-4 py-2 text-sm text-neutral dark:text-base-content hover:bg-base-100 dark:hover:bg-gray-700"
+                            >
+                                Trocar Senha
+                            </button>
+                            <button 
                                 onClick={handleLogout} 
                                 className="w-full text-left px-4 py-2 text-sm text-neutral dark:text-base-content hover:bg-base-100 dark:hover:bg-gray-700"
                             >
@@ -745,6 +765,14 @@ const App: React.FC = () => {
                     onClose={() => setSettingsModalOpen(false)}
                     user={currentUser}
                     onSave={handleUpdateUserData}
+                />
+            )}
+
+            {isChangePasswordModalOpen && (
+                 <ChangePasswordModal
+                    isOpen={isChangePasswordModalOpen}
+                    onClose={() => setChangePasswordModalOpen(false)}
+                    onSave={handleChangePassword}
                 />
             )}
 
@@ -1263,30 +1291,19 @@ const SettingsModal: React.FC<{
     isOpen: boolean;
     onClose: () => void;
     user: User;
-    onSave: (newName: string, newPassword?: string) => void;
+    onSave: (newName: string) => void;
 }> = ({ isOpen, onClose, user, onSave }) => {
     const [name, setName] = useState(user.name);
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
-    const [error, setError] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             setName(user.name);
-            setPassword('');
-            setConfirmPassword('');
-            setError('');
         }
     }, [isOpen, user]);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (password !== confirmPassword) {
-            setError('As senhas não conferem.');
-            return;
-        }
-        setError('');
-        onSave(name, password || undefined);
+        onSave(name);
     };
 
     return (
@@ -1307,29 +1324,64 @@ const SettingsModal: React.FC<{
                         required
                     />
                 </div>
+                <div className="pt-2">
+                    <button type="submit" className="btn-primary w-full">Salvar Alterações</button>
+                </div>
+            </form>
+        </Modal>
+    );
+};
+
+const ChangePasswordModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (current: string, newPass: string) => void;
+}> = ({ isOpen, onClose, onSave }) => {
+    const [currentPassword, setCurrentPassword] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [error, setError] = useState('');
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newPassword !== confirmPassword) {
+            setError('As novas senhas não conferem.');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setError('A nova senha deve ter pelo menos 6 caracteres.');
+            return;
+        }
+        setError('');
+        onSave(currentPassword, newPassword);
+    };
+    
+    const handleClose = () => {
+        setCurrentPassword('');
+        setNewPassword('');
+        setConfirmPassword('');
+        setError('');
+        onClose();
+    }
+
+    return (
+        <Modal isOpen={isOpen} onClose={handleClose} title="Trocar Senha">
+            <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                    <label htmlFor="settings-password"  className="block text-sm font-bold text-gray-700 dark:text-gray-300">Nova Senha (deixe em branco para não alterar)</label>
-                    <input
-                        id="settings-password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="input-field w-full"
-                    />
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Senha Atual</label>
+                    <input type="password" value={currentPassword} onChange={e => setCurrentPassword(e.target.value)} className="input-field w-full" required />
                 </div>
                 <div>
-                    <label htmlFor="settings-confirm-password"  className="block text-sm font-bold text-gray-700 dark:text-gray-300">Confirmar Nova Senha</label>
-                    <input
-                        id="settings-confirm-password"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="input-field w-full"
-                    />
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Nova Senha</label>
+                    <input type="password" value={newPassword} onChange={e => setNewPassword(e.target.value)} className="input-field w-full" required />
+                </div>
+                <div>
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300">Confirmar Nova Senha</label>
+                    <input type="password" value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} className="input-field w-full" required />
                 </div>
                 {error && <p className="text-red-500 text-sm">{error}</p>}
                 <div className="pt-2">
-                    <button type="submit" className="btn-primary w-full">Salvar Alterações</button>
+                    <button type="submit" className="btn-primary w-full">Salvar Nova Senha</button>
                 </div>
             </form>
         </Modal>
